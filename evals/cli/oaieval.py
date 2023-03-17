@@ -74,12 +74,14 @@ def n_ctx_from_model_name(model_name: str) -> Optional[int]:
         "gpt-4-32k": 32768,
         "gpt-4-32k-0314": 32768,
     }
-    # first, look for a prefix match
-    for model_prefix, n_ctx in DICT_OF_N_CTX_BY_MODEL_NAME_PREFIX.items():
-        if model_name.startswith(model_prefix):
-            return n_ctx
-    # otherwise, look for an exact match and return None if not found
-    return DICT_OF_N_CTX_BY_MODEL_NAME.get(model_name, None)
+    return next(
+        (
+            n_ctx
+            for model_prefix, n_ctx in DICT_OF_N_CTX_BY_MODEL_NAME_PREFIX.items()
+            if model_name.startswith(model_prefix)
+        ),
+        DICT_OF_N_CTX_BY_MODEL_NAME.get(model_name, None),
+    )
 
 
 class ModelResolver:
@@ -96,14 +98,12 @@ class ModelResolver:
 
     def resolve(self, name: str) -> ModelSpec:
         if name in self.api_model_ids:
-            result = ModelSpec(
+            return ModelSpec(
                 name=name,
                 model=name,
                 is_chat=(name in self.CHAT_MODELS),
                 n_ctx=n_ctx_from_model_name(name),
             )
-            return result
-
         raise ValueError(f"Couldn't find model: {name}")
 
     @cached_property
@@ -217,7 +217,7 @@ def main():
     logging.basicConfig(
         format="[%(asctime)s] [%(filename)s:%(lineno)d] %(message)s",
         level=logging.INFO,
-        filename=args.log_to_file if args.log_to_file else None,
+        filename=args.log_to_file or None,
     )
     logging.getLogger("openai").setLevel(logging.WARN)
     if hasattr(openai.error, "set_display_cause"):
